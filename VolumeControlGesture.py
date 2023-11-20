@@ -1,68 +1,55 @@
+import math
 import cv2
-import mediapipe as mp
 import time
-
-class handDetector():
-    def __init__(self, mode=False, maxHands=2, model_complexity=1, detectionCon=0.5, trackCon=0.5):
-        self.mode = mode
-        self.maxHands = maxHands
-        self.detectionCon = detectionCon
-        self.modelComplex = model_complexity
-        self.trackCon = trackCon
-        self.mpHands = mp.solutions.hands
-        self.hands = self.mpHands.Hands(self.mode, self.maxHands, self.modelComplex, self.detectionCon, self.trackCon)
-        self.mpDraw = mp.solutions.drawing_utils
-
-    def findHands(self, img, draw=True):
-        imgRGB = cv2.cvtColor(img, cv2.COLOR_BGRA2RGB) #converting the image to RGB
-        self.results = self.hands.process(imgRGB)
-        #print(results.multi_hand_landmarks)
-
-        if self.results.multi_hand_landmarks:
-            for handLms in self.results.multi_hand_landmarks:
-                if draw:
-                    self.mpDraw.draw_landmarks(img, handLms, self.mpHands.HAND_CONNECTIONS)
-        return img
-
-    def findPosition(self, img, handNo=0, draw=True):
-
-        lmList = []
-        if self.results.multi_hand_landmarks:
-            myHand = self.results.multi_hand_landmarks[handNo]
-            for id, lm in enumerate(myHand.landmark):
-                print(id,lm) #prints the landmark and id of the finger in the video
-                h, w, c = img.shape
-                cx, cy = int(lm.x*w), int(lm.y*h)
-                print(id, cx, cy) #printing pixels
-                lmList.append([id, cx, cy])
-                if draw:
-                    cv2.circle(img,(cx,cy),7, (255, 0, 0), cv2.FILLED)
-
-        return lmList
+import numpy as np
+import HandTrackingModule as htm
 
 
 
-def main():
-    pTime = 0
-    cTime = 0
-    cap = cv2.VideoCapture(0)
-    detector = handDetector()
-    while True:
-        success, img = cap.read()
-        img = detector.findHands(img, draw=False)
-        lmList = detector.findPosition(img, draw=False)
-        if len(lmList) !=0:
-            print(lmList[0])
+############################################
+wCam, hCam = 640, 480
+###########################################
 
-        cTime = time.time()
-        fps = 1 / (cTime - pTime)  # calculating fps
-        pTime = cTime
+cap = cv2.VideoCapture(0)
+cap.set(3, wCam)
+cap.set(4, hCam)
+pTime = 0
 
-        cv2.putText(img, str(int(fps)), (10, 70), cv2.FONT_HERSHEY_PLAIN, 3,
-                    (255, 0, 255), 3)  # displaying text (fps)
+detector = htm.handDetector(detectionCon=0.7)
 
-        cv2.imshow("Image", img)
-        cv2.waitKey(1)
 
-if __name__ == "__main__":
-    main()
+
+
+while True:
+    success, img = cap.read()
+    img = detector.findHands(img)
+    lmList = detector.findPosition(img, draw=False)
+    if len(lmList) !=0:
+        print(lmList[4],lmList[8])
+
+        x1, y1 = lmList[4][1], lmList[4][2]
+        x2, y2 = lmList[8][1], lmList[8][2]
+        cx, cy = (x1+x2) // 2, (y1 + y2) // 2
+
+        cv2.circle(img, (x1, y1), 15, (255, 0, 255), cv2.FILLED)
+        cv2.circle(img, (x2, y2), 15, (255,0,255), cv2.FILLED)
+        cv2.line(img,(x1, y1), (x2, y2),(255, 0, 255),3)
+        cv2.circle(img,(cx, cy), 15, (255, 0 , 255), cv2.FILLED)
+
+        length = math.hypot(x2 - x1, y2 - y1)
+        print(length)
+
+        if length < 50:
+            cv2.circle(img,(cx, cy), 15, (0, 255, 0), cv2.FILLED)
+
+
+    cTime = time.time()
+    fps = 1/(cTime-pTime)
+    pTime = cTime
+
+    cv2.putText(img, f'FPS: {int(fps)}',(40, 50), cv2.FONT_HERSHEY_COMPLEX,
+                1, (255, 0, 0), 3)
+
+    cv2.imshow("Img", img)
+    cv2.waitKey(1)
+
