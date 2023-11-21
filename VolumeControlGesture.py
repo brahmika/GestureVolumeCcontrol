@@ -3,6 +3,10 @@ import cv2
 import time
 import numpy as np
 import HandTrackingModule as htm
+import pycaw
+from ctypes import cast, POINTER
+from comtypes import CLSCTX_ALL
+from pycaw.pycaw import AudioUtilities, IAudioEndpointVolume
 
 
 
@@ -17,7 +21,16 @@ pTime = 0
 
 detector = htm.handDetector(detectionCon=0.7)
 
-
+devices = AudioUtilities.GetSpeakers()
+interface = devices.Activate(
+    IAudioEndpointVolume._iid_, CLSCTX_ALL, None)
+volume = interface.QueryInterface(IAudioEndpointVolume)
+#volume.GetMute()
+#volume.GetMasterVolumeLevel()
+volRange = volume.GetVolumeRange()
+volume.SetMasterVolumeLevel(0, None)
+minVol = volRange[0]
+maxVol = volRange[1]
 
 
 while True:
@@ -37,7 +50,11 @@ while True:
         cv2.circle(img,(cx, cy), 15, (255, 0 , 255), cv2.FILLED)
 
         length = math.hypot(x2 - x1, y2 - y1)
-        print(length)
+        #print(length)
+
+        vol = np.interp(length,[50,300],[minVol, maxVol])
+        print(vol)
+        volume.SetMasterVolumeLevel(vol, None)
 
         if length < 50:
             cv2.circle(img,(cx, cy), 15, (0, 255, 0), cv2.FILLED)
